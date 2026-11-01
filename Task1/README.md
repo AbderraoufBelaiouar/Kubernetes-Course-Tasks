@@ -33,7 +33,7 @@ lscpu | grep -E "Model name|CPU\(s\):"
 **Why:** each VM needs RAM and disk, and KVM needs hardware virtualization.
 **Problem found:** only 8 GB of disk was free (97% used). Cleaned with `sudo apt clean && sudo apt autoremove -y`, `sudo journalctl --vacuum-size=200M`, and by deleting old files (17 GB free afterwards). Used `--disk-size 10g` because the default is 20 GB per node.
 
-> TODO screenshot: `df -h /` and `free -h` output. Save as `images/01-machine-check.png`.
+> TODO screenshot: `df -h /` and `free -h` output. Save as `01-machine-check.png`.
 
 ## Phase 2: Install KVM, virt-manager, minikube, kubectl
 
@@ -52,7 +52,7 @@ sudo snap install kubectl --classic
 **Why:** libvirt and KVM run the VMs, virt-manager is the GUI, minikube creates the VMs and installs Kubernetes.
 **Note:** the `docker` group advice applies only to `--driver=docker`. With `kvm2` the groups that matter are `libvirt` and `kvm`. Run minikube as a normal user, never with `sudo`.
 
-> TODO screenshot: `kvm-ok`, `minikube version`, `groups`. Save as `images/02-install-check.png`.
+> TODO screenshot: `kvm-ok`, `minikube version`, `groups`. Save as `02-install-check.png`.
 
 ## Phase 3: Create the cluster
 
@@ -70,7 +70,7 @@ minikube start --driver=kvm2 --nodes 3 --cni=calico --cpus 2 --memory 2560 --dis
 
 **Evidence:** the screenshot shows the old capitalized cluster deleted, then the lowercase one creating the control-plane node, `m02` and `m03` (each CPUs=2, Memory=2560MB, Disk=10240MB), Calico configured, and `Done! kubectl is now configured to use "mlopstaskcluster"`. No join error appeared this time.
 
-![Cluster creation with 3 nodes and Calico](images/03-cluster-start-lowercase-3-nodes.png)
+![Cluster creation with 3 nodes and Calico](03-cluster-start-lowercase-3-nodes.png)
 
 ### Problems solved in this phase
 
@@ -100,7 +100,7 @@ kubectl get nodes -o wide
 ```
 Expected: `mlopstaskcluster` (control-plane), `mlopstaskcluster-m02` and `mlopstaskcluster-m03`, all `Ready`. Then open **virt-manager** to see the three VMs running.
 
-> TODO screenshots: `kubectl get nodes -o wide` as `images/04a-get-nodes.png`, and virt-manager showing the VMs as `images/04b-virt-manager.png`.
+> TODO screenshots: `kubectl get nodes -o wide` as `04a-get-nodes.png`, and virt-manager showing the VMs as `04b-virt-manager.png`.
 
 Harmless warnings seen: the Docker context warning (Docker is installed but not used by kvm2), and kubectl 1.35 versus cluster 1.37 (within the supported version difference).
 
@@ -118,7 +118,7 @@ kubectl create deployment web-deployment --image=nginx:1.27 --replicas=3 -n weba
 unknown field "spec.template.spec.containers[0].port"
 ```
 
-![Skeleton and the port error](images/05-deployment-skeleton-and-port-error.png)
+![Skeleton and the port error](05-deployment-skeleton-and-port-error.png)
 
 **Root cause:** the field is `ports:` (plural), not `port:`. The server-side dry run caught it before anything was deployed, which is why it is worth running before `apply`.
 
@@ -195,7 +195,7 @@ kubectl get pods -n webapp -w                          # Ctrl+C to stop
 ```
 **Evidence:** the screenshot shows the server dry run succeeding (`created (server dry run)`), then `deployment.apps/web-deployment created`, and the three Pods going from `0/2 PodInitializing` to `2/2 Running`. They show `2/2` because the two regular containers count and the finished init container does not.
 
-![Apply and three Pods running](images/06-apply-and-pods-running.png)
+![Apply and three Pods running](06-apply-and-pods-running.png)
 
 (The `cls` line in the screenshot is a typo for `clear`. It is harmless.)
 
@@ -214,7 +214,7 @@ curl -s localhost:8080; sleep 6; curl -s localhost:8080          # second termin
 ```
 Or use `kubectl exec deploy/web-deployment -n webapp -c nginx -- cat /usr/share/nginx/html/index.html` twice, a few seconds apart. During the session this showed `13:48:18` and then `13:48:23`, proving the sidecar rewrites nginx's file.
 
-> TODO screenshots: the browser at http://localhost:8080 before and after a refresh, or the two `curl` outputs. Save as `images/07a-page-before.png` and `images/07b-page-after.png`.
+> TODO screenshots: the browser at http://localhost:8080 before and after a refresh, or the two `curl` outputs. Save as `07a-page-before.png` and `07b-page-after.png`.
 
 ## Phase 8: A failed rollout and the rollback
 
@@ -224,15 +224,15 @@ While testing an init-container failure, the file was edited and re-applied. The
 
 1. Watching Pods (second terminal): the new Pods show `1/2 CrashLoopBackOff` and `Error` with rising restart counts, while the old Pods (`6754d96947`) stay `2/2 Running`. After the rollback the bad Pods go `Terminating` and a new `6754d96947` Pod goes `Pending`, `Init:0/1`, `PodInitializing`, `Running`.
 
-   ![Watch: crash loop and recovery](images/08a-watch-crashloop-and-recovery.png)
+   ![Watch: crash loop and recovery](08a-watch-crashloop-and-recovery.png)
 
 2. `kubectl describe pod` on a bad Pod: `Initialized True`, `Ready False`, `ContainersReady False`. The events show the init container and `time-updater` started normally, and the warning is **`Back-off restarting failed container nginx`**. `kubectl rollout status` repeats `2 out of 3 new replicas have been updated`, so the rollout is stuck. Then `kubectl rollout undo` prints `rolled back`.
 
-   ![Describe events and rollout undo](images/08b-describe-events-and-rollout-undo.png)
+   ![Describe events and rollout undo](08b-describe-events-and-rollout-undo.png)
 
 3. After the undo: `kubectl get deploy web-deployment -n webapp` shows `READY 3/3`, `UP-TO-DATE 3`, `AVAILABLE 3`.
 
-   ![Rollback result 3/3](images/08c-rollback-result-3-of-3.png)
+   ![Rollback result 3/3](08c-rollback-result-3-of-3.png)
 
 **How to read it**
 - A failing init container would show `Init:Error` with `0/2`. The Pods here were `1/2`, and the events point at the **nginx** container, so the init container was not the failing part.
